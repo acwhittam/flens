@@ -1,0 +1,35 @@
+{
+  "name": "flens",
+  "version": "0.0.1",
+  "description": "",
+  "main": "dist/flens.cjs.js",
+  "module": "dist/flens.esm.js",
+  "browser": "dist/flens.umd.js",
+  "scripts": {
+    "prepublish": "npm run build",
+    "build": "rollup -c ",
+    "dev": "rollup -c -w",
+    "test": "tape test/test.js",
+    "pretest": "npm run build"
+  },
+  "dependencies": {
+    "fluture": "^14.0.0",
+    "ramda": "^0.27.1",
+    "tape": "^5.2.2"
+  },
+  "author": "andy whittam",
+  "license": "MIT",
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^17.1.0",
+    "@rollup/plugin-node-resolve": "^11.2.0",
+    "rollup": "^2.42.0"
+  },
+  "repository": {
+		"type": "git",
+		"url": "https://github.com/acwhittam/flens.git"
+	},
+  "files": [
+    "dist",
+    "README.md"
+  ]
+}
