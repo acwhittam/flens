@@ -1,7 +1,7 @@
 {
   "name": "flens",
-  "version": "0.0.1",
-  "description": "",
+  "version": "0.0.2",
+  "description": "Futures + Lens",
   "main": "dist/flens.cjs.js",
   "module": "dist/flens.esm.js",
   "browser": "dist/flens.umd.js",
