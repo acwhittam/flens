@@ -1,6 +1,6 @@
 {
   "name": "flens",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Futures + Lens",
   "main": "dist/flens.cjs.js",
   "module": "dist/flens.esm.js",
@@ -17,6 +17,14 @@
     "ramda": "^0.27.1"
   },
   "author": "andy whittam",
+  "keywords": [
+    "lens",
+    "functional",
+    "fp",
+    "future",
+    "ramda",
+    "fluture"
+  ],
   "license": "MIT",
   "devDependencies": {
     "@rollup/plugin-commonjs": "^17.1.0",
