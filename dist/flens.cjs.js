@@ -27,5 +27,12 @@ const wrap = (l) => ramda.lens(
 
 const flens = ramda.compose(wrap, ramda.lens);
 
+const flensProp = (prop)=>wrap(ramda.lensProp(prop));
+const flensPath = (path)=>wrap(ramda.lensPath(path));
+const flensIndex = (index)=>wrap(ramda.lensIndex(index));
+
 exports.flens = flens;
+exports.flensIndex = flensIndex;
+exports.flensPath = flensPath;
+exports.flensProp = flensProp;
 exports.wrap = wrap;

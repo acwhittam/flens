@@ -1,4 +1,4 @@
-import { compose, chain, unless, map, isNil, lens, set, view } from 'ramda';
+import { compose, chain, unless, map, isNil, lens, set, view, lensProp, lensPath, lensIndex } from 'ramda';
 import { isFuture, resolve, reject,both } from 'fluture'
 
 
@@ -24,5 +24,9 @@ const wrap = (l) => lens(
 
 const flens = compose(wrap, lens);
 
-export {wrap, flens}
+const flensProp = (prop)=>wrap(lensProp(prop));
+const flensPath = (path)=>wrap(lensPath(path));
+const flensIndex = (index)=>wrap(lensIndex(index));
+
+export {wrap, flens, flensProp, flensIndex, flensPath}
 

@@ -57,6 +57,41 @@
     };
   }
 
+  /**
+   * Private `concat` function to merge two array-like objects.
+   *
+   * @private
+   * @param {Array|Arguments} [set1=[]] An array-like object.
+   * @param {Array|Arguments} [set2=[]] An array-like object.
+   * @return {Array} A new, merged array.
+   * @example
+   *
+   *      _concat([4, 5, 6], [1, 2, 3]); //=> [4, 5, 6, 1, 2, 3]
+   */
+  function _concat(set1, set2) {
+    set1 = set1 || [];
+    set2 = set2 || [];
+    var idx;
+    var len1 = set1.length;
+    var len2 = set2.length;
+    var result = [];
+    idx = 0;
+
+    while (idx < len1) {
+      result[result.length] = set1[idx];
+      idx += 1;
+    }
+
+    idx = 0;
+
+    while (idx < len2) {
+      result[result.length] = set2[idx];
+      idx += 1;
+    }
+
+    return result;
+  }
+
   function _arity(n, fn) {
     /* eslint-disable no-unused-vars */
     switch (n) {
@@ -260,6 +295,49 @@
       }
     };
   }
+
+  /**
+   * Applies a function to the value at the given index of an array, returning a
+   * new copy of the array with the element at the given index replaced with the
+   * result of the function application.
+   *
+   * @func
+   * @memberOf R
+   * @since v0.14.0
+   * @category List
+   * @sig Number -> (a -> a) -> [a] -> [a]
+   * @param {Number} idx The index.
+   * @param {Function} fn The function to apply.
+   * @param {Array|Arguments} list An array-like object whose value
+   *        at the supplied index will be replaced.
+   * @return {Array} A copy of the supplied array-like object with
+   *         the element at index `idx` replaced with the value
+   *         returned by applying `fn` to the existing element.
+   * @see R.update
+   * @example
+   *
+   *      R.adjust(1, R.toUpper, ['a', 'b', 'c', 'd']);      //=> ['a', 'B', 'c', 'd']
+   *      R.adjust(-1, R.toUpper, ['a', 'b', 'c', 'd']);     //=> ['a', 'b', 'c', 'D']
+   * @symb R.adjust(-1, f, [a, b]) = [a, f(b)]
+   * @symb R.adjust(0, f, [a, b]) = [f(a), b]
+   */
+
+  var adjust =
+  /*#__PURE__*/
+  _curry3(function adjust(idx, fn, list) {
+    if (idx >= list.length || idx < -list.length) {
+      return list;
+    }
+
+    var start = idx < 0 ? list.length : 0;
+
+    var _idx = start + idx;
+
+    var _list = _concat(list);
+
+    _list[_idx] = fn(list[_idx]);
+    return _list;
+  });
 
   /**
    * Tests whether or not an object is an array.
@@ -714,6 +792,148 @@
   }));
 
   /**
+   * Determine if the passed argument is an integer.
+   *
+   * @private
+   * @param {*} n
+   * @category Type
+   * @return {Boolean}
+   */
+  var _isInteger = Number.isInteger || function _isInteger(n) {
+    return n << 0 === n;
+  };
+
+  /**
+   * Returns the nth element of the given list or string. If n is negative the
+   * element at index length + n is returned.
+   *
+   * @func
+   * @memberOf R
+   * @since v0.1.0
+   * @category List
+   * @sig Number -> [a] -> a | Undefined
+   * @sig Number -> String -> String
+   * @param {Number} offset
+   * @param {*} list
+   * @return {*}
+   * @example
+   *
+   *      const list = ['foo', 'bar', 'baz', 'quux'];
+   *      R.nth(1, list); //=> 'bar'
+   *      R.nth(-1, list); //=> 'quux'
+   *      R.nth(-99, list); //=> undefined
+   *
+   *      R.nth(2, 'abc'); //=> 'c'
+   *      R.nth(3, 'abc'); //=> ''
+   * @symb R.nth(-1, [a, b, c]) = c
+   * @symb R.nth(0, [a, b, c]) = a
+   * @symb R.nth(1, [a, b, c]) = b
+   */
+
+  var nth =
+  /*#__PURE__*/
+  _curry2(function nth(offset, list) {
+    var idx = offset < 0 ? list.length + offset : offset;
+    return _isString(list) ? list.charAt(idx) : list[idx];
+  });
+
+  /**
+   * Retrieves the values at given paths of an object.
+   *
+   * @func
+   * @memberOf R
+   * @since v0.27.1
+   * @category Object
+   * @typedefn Idx = [String | Int]
+   * @sig [Idx] -> {a} -> [a | Undefined]
+   * @param {Array} pathsArray The array of paths to be fetched.
+   * @param {Object} obj The object to retrieve the nested properties from.
+   * @return {Array} A list consisting of values at paths specified by "pathsArray".
+   * @see R.path
+   * @example
+   *
+   *      R.paths([['a', 'b'], ['p', 0, 'q']], {a: {b: 2}, p: [{q: 3}]}); //=> [2, 3]
+   *      R.paths([['a', 'b'], ['p', 'r']], {a: {b: 2}, p: [{q: 3}]}); //=> [2, undefined]
+   */
+
+  var paths =
+  /*#__PURE__*/
+  _curry2(function paths(pathsArray, obj) {
+    return pathsArray.map(function (paths) {
+      var val = obj;
+      var idx = 0;
+      var p;
+
+      while (idx < paths.length) {
+        if (val == null) {
+          return;
+        }
+
+        p = paths[idx];
+        val = _isInteger(p) ? nth(p, val) : val[p];
+        idx += 1;
+      }
+
+      return val;
+    });
+  });
+
+  /**
+   * Retrieve the value at a given path.
+   *
+   * @func
+   * @memberOf R
+   * @since v0.2.0
+   * @category Object
+   * @typedefn Idx = String | Int
+   * @sig [Idx] -> {a} -> a | Undefined
+   * @param {Array} path The path to use.
+   * @param {Object} obj The object to retrieve the nested property from.
+   * @return {*} The data at `path`.
+   * @see R.prop, R.nth
+   * @example
+   *
+   *      R.path(['a', 'b'], {a: {b: 2}}); //=> 2
+   *      R.path(['a', 'b'], {c: {b: 2}}); //=> undefined
+   *      R.path(['a', 'b', 0], {a: {b: [1, 2, 3]}}); //=> 1
+   *      R.path(['a', 'b', -2], {a: {b: [1, 2, 3]}}); //=> 2
+   */
+
+  var path =
+  /*#__PURE__*/
+  _curry2(function path(pathAr, obj) {
+    return paths([pathAr], obj)[0];
+  });
+
+  /**
+   * Returns a function that when supplied an object returns the indicated
+   * property of that object, if it exists.
+   *
+   * @func
+   * @memberOf R
+   * @since v0.1.0
+   * @category Object
+   * @typedefn Idx = String | Int
+   * @sig Idx -> {s: a} -> a | Undefined
+   * @param {String|Number} p The property name or array index
+   * @param {Object} obj The object to query
+   * @return {*} The value at `obj.p`.
+   * @see R.path, R.nth
+   * @example
+   *
+   *      R.prop('x', {x: 100}); //=> 100
+   *      R.prop('x', {}); //=> undefined
+   *      R.prop(0, [100]); //=> 100
+   *      R.compose(R.inc, R.prop('x'))({ x: 3 }) //=> 4
+   */
+
+  var prop =
+  /*#__PURE__*/
+  _curry2(function prop(p, obj) {
+    return path([p], obj);
+  });
+
+  /**
    * Returns a single item by iterating through the list, successively calling
    * the iterator function and passing it an accumulator value and the current
    * value from the array, and then passing the result to the next call.
@@ -793,6 +1013,40 @@
   });
 
   /**
+   * Makes a shallow clone of an object, setting or overriding the specified
+   * property with the given value. Note that this copies and flattens prototype
+   * properties onto the new object as well. All non-primitive properties are
+   * copied by reference.
+   *
+   * @func
+   * @memberOf R
+   * @since v0.8.0
+   * @category Object
+   * @sig String -> a -> {k: v} -> {k: v}
+   * @param {String} prop The property name to set
+   * @param {*} val The new value
+   * @param {Object} obj The object to clone
+   * @return {Object} A new object equivalent to the original except for the changed property.
+   * @see R.dissoc, R.pick
+   * @example
+   *
+   *      R.assoc('c', 3, {a: 1, b: 2}); //=> {a: 1, b: 2, c: 3}
+   */
+
+  var assoc =
+  /*#__PURE__*/
+  _curry3(function assoc(prop, val, obj) {
+    var result = {};
+
+    for (var p in obj) {
+      result[p] = obj[p];
+    }
+
+    result[prop] = val;
+    return result;
+  });
+
+  /**
    * Checks if the input value is `null` or `undefined`.
    *
    * @func
@@ -814,6 +1068,54 @@
   /*#__PURE__*/
   _curry1(function isNil(x) {
     return x == null;
+  });
+
+  /**
+   * Makes a shallow clone of an object, setting or overriding the nodes required
+   * to create the given path, and placing the specific value at the tail end of
+   * that path. Note that this copies and flattens prototype properties onto the
+   * new object as well. All non-primitive properties are copied by reference.
+   *
+   * @func
+   * @memberOf R
+   * @since v0.8.0
+   * @category Object
+   * @typedefn Idx = String | Int
+   * @sig [Idx] -> a -> {a} -> {a}
+   * @param {Array} path the path to set
+   * @param {*} val The new value
+   * @param {Object} obj The object to clone
+   * @return {Object} A new object equivalent to the original except along the specified path.
+   * @see R.dissocPath
+   * @example
+   *
+   *      R.assocPath(['a', 'b', 'c'], 42, {a: {b: {c: 0}}}); //=> {a: {b: {c: 42}}}
+   *
+   *      // Any missing or non-object keys in path will be overridden
+   *      R.assocPath(['a', 'b', 'c'], 42, {a: 5}); //=> {a: {b: {c: 42}}}
+   */
+
+  var assocPath =
+  /*#__PURE__*/
+  _curry3(function assocPath(path, val, obj) {
+    if (path.length === 0) {
+      return val;
+    }
+
+    var idx = path[0];
+
+    if (path.length > 1) {
+      var nextObj = !isNil$1(obj) && _has(idx, obj) ? obj[idx] : _isInteger(path[1]) ? [] : {};
+      val = assocPath(Array.prototype.slice.call(path, 1), val, nextObj);
+    }
+
+    if (_isInteger(idx) && _isArray(obj)) {
+      var arr = [].concat(obj);
+      arr[idx] = val;
+      return arr;
+    } else {
+      return assoc(idx, val, obj);
+    }
   });
 
   /**
@@ -1127,6 +1429,35 @@
   }
 
   /**
+   * Returns a new copy of the array with the element at the provided index
+   * replaced with the given value.
+   *
+   * @func
+   * @memberOf R
+   * @since v0.14.0
+   * @category List
+   * @sig Number -> a -> [a] -> [a]
+   * @param {Number} idx The index to update.
+   * @param {*} x The value to exist at the given index of the returned array.
+   * @param {Array|Arguments} list The source array-like object to be updated.
+   * @return {Array} A copy of `list` with the value at index `idx` replaced with `x`.
+   * @see R.adjust
+   * @example
+   *
+   *      R.update(1, '_', ['a', 'b', 'c']);      //=> ['a', '_', 'c']
+   *      R.update(-1, '_', ['a', 'b', 'c']);     //=> ['a', 'b', '_']
+   * @symb R.update(-1, a, [b, c]) = [b, a]
+   * @symb R.update(0, a, [b, c]) = [a, c]
+   * @symb R.update(1, a, [b, c]) = [b, a]
+   */
+
+  var update =
+  /*#__PURE__*/
+  _curry3(function update(idx, x, list) {
+    return adjust(idx, always(x), list);
+  });
+
+  /**
    * Returns a lens for the given getter and setter functions. The getter "gets"
    * the value of the focus; the setter "sets" the value of the focus. The setter
    * should not mutate the data structure.
@@ -1160,6 +1491,91 @@
         }, toFunctorFn(getter(target)));
       };
     };
+  });
+
+  /**
+   * Returns a lens whose focus is the specified index.
+   *
+   * @func
+   * @memberOf R
+   * @since v0.14.0
+   * @category Object
+   * @typedefn Lens s a = Functor f => (a -> f a) -> s -> f s
+   * @sig Number -> Lens s a
+   * @param {Number} n
+   * @return {Lens}
+   * @see R.view, R.set, R.over, R.nth
+   * @example
+   *
+   *      const headLens = R.lensIndex(0);
+   *
+   *      R.view(headLens, ['a', 'b', 'c']);            //=> 'a'
+   *      R.set(headLens, 'x', ['a', 'b', 'c']);        //=> ['x', 'b', 'c']
+   *      R.over(headLens, R.toUpper, ['a', 'b', 'c']); //=> ['A', 'b', 'c']
+   */
+
+  var lensIndex =
+  /*#__PURE__*/
+  _curry1(function lensIndex(n) {
+    return lens(nth(n), update(n));
+  });
+
+  /**
+   * Returns a lens whose focus is the specified path.
+   *
+   * @func
+   * @memberOf R
+   * @since v0.19.0
+   * @category Object
+   * @typedefn Idx = String | Int
+   * @typedefn Lens s a = Functor f => (a -> f a) -> s -> f s
+   * @sig [Idx] -> Lens s a
+   * @param {Array} path The path to use.
+   * @return {Lens}
+   * @see R.view, R.set, R.over
+   * @example
+   *
+   *      const xHeadYLens = R.lensPath(['x', 0, 'y']);
+   *
+   *      R.view(xHeadYLens, {x: [{y: 2, z: 3}, {y: 4, z: 5}]});
+   *      //=> 2
+   *      R.set(xHeadYLens, 1, {x: [{y: 2, z: 3}, {y: 4, z: 5}]});
+   *      //=> {x: [{y: 1, z: 3}, {y: 4, z: 5}]}
+   *      R.over(xHeadYLens, R.negate, {x: [{y: 2, z: 3}, {y: 4, z: 5}]});
+   *      //=> {x: [{y: -2, z: 3}, {y: 4, z: 5}]}
+   */
+
+  var lensPath =
+  /*#__PURE__*/
+  _curry1(function lensPath(p) {
+    return lens(path(p), assocPath(p));
+  });
+
+  /**
+   * Returns a lens whose focus is the specified property.
+   *
+   * @func
+   * @memberOf R
+   * @since v0.14.0
+   * @category Object
+   * @typedefn Lens s a = Functor f => (a -> f a) -> s -> f s
+   * @sig String -> Lens s a
+   * @param {String} k
+   * @return {Lens}
+   * @see R.view, R.set, R.over
+   * @example
+   *
+   *      const xLens = R.lensProp('x');
+   *
+   *      R.view(xLens, {x: 1, y: 2});            //=> 1
+   *      R.set(xLens, 4, {x: 1, y: 2});          //=> {x: 4, y: 2}
+   *      R.over(xLens, R.negate, {x: 1, y: 2});  //=> {x: -1, y: 2}
+   */
+
+  var lensProp =
+  /*#__PURE__*/
+  _curry1(function lensProp(k) {
+    return lens(prop(k), assoc(k));
   });
 
   // transforms the held value with the provided function.
@@ -3077,7 +3493,14 @@
 
   const flens = compose(wrap, lens);
 
+  const flensProp = (prop)=>wrap(lensProp(prop));
+  const flensPath = (path)=>wrap(lensPath(path));
+  const flensIndex = (index)=>wrap(lensIndex(index));
+
   exports.flens = flens;
+  exports.flensIndex = flensIndex;
+  exports.flensPath = flensPath;
+  exports.flensProp = flensProp;
   exports.wrap = wrap;
 
   Object.defineProperty(exports, '__esModule', { value: true });
