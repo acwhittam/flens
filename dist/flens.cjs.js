@@ -15,7 +15,7 @@ const getter = (l) => (data) => (ramda.compose(
 )(data));
 
 const setter = (l) => (value, target) => (ramda.compose(
-    ramda.map(([v, t]) => ramda.set(l, v, t)),
+    ramda.chain(([v, t]) => toFuture(ramda.set(l, v, t))),
     fluture.both(toFuture(value))
 )(toFuture(target)));
 
@@ -27,9 +27,9 @@ const wrap = (l) => ramda.lens(
 
 const flens = ramda.compose(wrap, ramda.lens);
 
-const flensProp = (prop)=>wrap(ramda.lensProp(prop));
-const flensPath = (path)=>wrap(ramda.lensPath(path));
-const flensIndex = (index)=>wrap(ramda.lensIndex(index));
+const flensProp = (prop) => wrap(ramda.lensProp(prop));
+const flensPath = (path) => wrap(ramda.lensPath(path));
+const flensIndex = (index) => wrap(ramda.lensIndex(index));
 
 exports.flens = flens;
 exports.flensIndex = flensIndex;

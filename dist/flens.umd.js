@@ -2,7 +2,7 @@
   typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
   typeof define === 'function' && define.amd ? define(['exports'], factory) :
   (global = typeof globalThis !== 'undefined' ? globalThis : global || self, factory(global.flens = {}));
-}(this, (function (exports) { 'use strict';
+})(this, (function (exports) { 'use strict';
 
   function _isPlaceholder(a) {
     return a != null && typeof a === 'object' && a['@@functional/placeholder'] === true;
@@ -325,13 +325,13 @@
   var adjust =
   /*#__PURE__*/
   _curry3(function adjust(idx, fn, list) {
-    if (idx >= list.length || idx < -list.length) {
+    var len = list.length;
+
+    if (idx >= len || idx < -len) {
       return list;
     }
 
-    var start = idx < 0 ? list.length : 0;
-
-    var _idx = start + idx;
+    var _idx = (len + idx) % len;
 
     var _list = _concat(list);
 
@@ -364,38 +364,38 @@
    * object in list position (last argument). If it is an array, executes [fn].
    * Otherwise, if it has a function with one of the given method names, it will
    * execute that function (functor case). Otherwise, if it is a transformer,
-   * uses transducer [xf] to return a new transformer (transducer case).
+   * uses transducer created by [transducerCreator] to return a new transformer
+   * (transducer case).
    * Otherwise, it will default to executing [fn].
    *
    * @private
    * @param {Array} methodNames properties to check for a custom implementation
-   * @param {Function} xf transducer to initialize if object is transformer
+   * @param {Function} transducerCreator transducer factory if object is transformer
    * @param {Function} fn default ramda implementation
    * @return {Function} A function that dispatches on object in list position
    */
 
-  function _dispatchable(methodNames, xf, fn) {
+  function _dispatchable(methodNames, transducerCreator, fn) {
     return function () {
       if (arguments.length === 0) {
         return fn();
       }
 
-      var args = Array.prototype.slice.call(arguments, 0);
-      var obj = args.pop();
+      var obj = arguments[arguments.length - 1];
 
       if (!_isArray(obj)) {
         var idx = 0;
 
         while (idx < methodNames.length) {
           if (typeof obj[methodNames[idx]] === 'function') {
-            return obj[methodNames[idx]].apply(obj, args);
+            return obj[methodNames[idx]].apply(obj, Array.prototype.slice.call(arguments, 0, -1));
           }
 
           idx += 1;
         }
 
         if (_isTransformer(obj)) {
-          var transducer = xf.apply(null, args);
+          var transducer = transducerCreator.apply(null, Array.prototype.slice.call(arguments, 0, -1));
           return transducer(obj);
         }
       }
@@ -446,6 +446,7 @@
    *      _isArrayLike({}); //=> false
    *      _isArrayLike({length: 10}); //=> false
    *      _isArrayLike({0: 'zero', 9: 'nine', length: 10}); //=> true
+   *      _isArrayLike({nodeType: 1, length: 1}) // => false
    */
 
   var _isArrayLike =
@@ -465,10 +466,6 @@
 
     if (_isString(x)) {
       return false;
-    }
-
-    if (x.nodeType === 1) {
-      return !!x.length;
     }
 
     if (x.length === 0) {
@@ -687,7 +684,7 @@
    * @sig {k: v} -> [k]
    * @param {Object} obj The object to extract properties from
    * @return {Array} An array of the object's own properties.
-   * @see R.keysIn, R.values
+   * @see R.keysIn, R.values, R.toPairs
    * @example
    *
    *      R.keys({a: 1, b: 2, c: 3}); //=> ['a', 'b', 'c']
@@ -756,7 +753,7 @@
    * @param {Function} fn The function to be called on every element of the input `list`.
    * @param {Array} list The list to be iterated over.
    * @return {Array} The new list.
-   * @see R.transduce, R.addIndex
+   * @see R.transduce, R.addIndex, R.pluck, R.project
    * @example
    *
    *      const double = x => x * 2;
@@ -838,74 +835,6 @@
   });
 
   /**
-   * Retrieves the values at given paths of an object.
-   *
-   * @func
-   * @memberOf R
-   * @since v0.27.1
-   * @category Object
-   * @typedefn Idx = [String | Int]
-   * @sig [Idx] -> {a} -> [a | Undefined]
-   * @param {Array} pathsArray The array of paths to be fetched.
-   * @param {Object} obj The object to retrieve the nested properties from.
-   * @return {Array} A list consisting of values at paths specified by "pathsArray".
-   * @see R.path
-   * @example
-   *
-   *      R.paths([['a', 'b'], ['p', 0, 'q']], {a: {b: 2}, p: [{q: 3}]}); //=> [2, 3]
-   *      R.paths([['a', 'b'], ['p', 'r']], {a: {b: 2}, p: [{q: 3}]}); //=> [2, undefined]
-   */
-
-  var paths =
-  /*#__PURE__*/
-  _curry2(function paths(pathsArray, obj) {
-    return pathsArray.map(function (paths) {
-      var val = obj;
-      var idx = 0;
-      var p;
-
-      while (idx < paths.length) {
-        if (val == null) {
-          return;
-        }
-
-        p = paths[idx];
-        val = _isInteger(p) ? nth(p, val) : val[p];
-        idx += 1;
-      }
-
-      return val;
-    });
-  });
-
-  /**
-   * Retrieve the value at a given path.
-   *
-   * @func
-   * @memberOf R
-   * @since v0.2.0
-   * @category Object
-   * @typedefn Idx = String | Int
-   * @sig [Idx] -> {a} -> a | Undefined
-   * @param {Array} path The path to use.
-   * @param {Object} obj The object to retrieve the nested property from.
-   * @return {*} The data at `path`.
-   * @see R.prop, R.nth
-   * @example
-   *
-   *      R.path(['a', 'b'], {a: {b: 2}}); //=> 2
-   *      R.path(['a', 'b'], {c: {b: 2}}); //=> undefined
-   *      R.path(['a', 'b', 0], {a: {b: [1, 2, 3]}}); //=> 1
-   *      R.path(['a', 'b', -2], {a: {b: [1, 2, 3]}}); //=> 2
-   */
-
-  var path =
-  /*#__PURE__*/
-  _curry2(function path(pathAr, obj) {
-    return paths([pathAr], obj)[0];
-  });
-
-  /**
    * Returns a function that when supplied an object returns the indicated
    * property of that object, if it exists.
    *
@@ -913,12 +842,12 @@
    * @memberOf R
    * @since v0.1.0
    * @category Object
-   * @typedefn Idx = String | Int
+   * @typedefn Idx = String | Int | Symbol
    * @sig Idx -> {s: a} -> a | Undefined
    * @param {String|Number} p The property name or array index
    * @param {Object} obj The object to query
    * @return {*} The value at `obj.p`.
-   * @see R.path, R.nth
+   * @see R.path, R.props, R.pluck, R.project, R.nth
    * @example
    *
    *      R.prop('x', {x: 100}); //=> 100
@@ -930,7 +859,11 @@
   var prop =
   /*#__PURE__*/
   _curry2(function prop(p, obj) {
-    return path([p], obj);
+    if (obj == null) {
+      return;
+    }
+
+    return _isInteger(p) ? nth(p, obj) : obj[p];
   });
 
   /**
@@ -1018,24 +951,20 @@
    * properties onto the new object as well. All non-primitive properties are
    * copied by reference.
    *
-   * @func
-   * @memberOf R
-   * @since v0.8.0
-   * @category Object
-   * @sig String -> a -> {k: v} -> {k: v}
-   * @param {String} prop The property name to set
+   * @private
+   * @param {String|Number} prop The property name to set
    * @param {*} val The new value
-   * @param {Object} obj The object to clone
-   * @return {Object} A new object equivalent to the original except for the changed property.
-   * @see R.dissoc, R.pick
-   * @example
-   *
-   *      R.assoc('c', 3, {a: 1, b: 2}); //=> {a: 1, b: 2, c: 3}
+   * @param {Object|Array} obj The object to clone
+   * @return {Object|Array} A new object equivalent to the original except for the changed property.
    */
 
-  var assoc =
-  /*#__PURE__*/
-  _curry3(function assoc(prop, val, obj) {
+  function _assoc(prop, val, obj) {
+    if (_isInteger(prop) && _isArray(obj)) {
+      var arr = [].concat(obj);
+      arr[prop] = val;
+      return arr;
+    }
+
     var result = {};
 
     for (var p in obj) {
@@ -1044,7 +973,7 @@
 
     result[prop] = val;
     return result;
-  });
+  }
 
   /**
    * Checks if the input value is `null` or `undefined`.
@@ -1080,7 +1009,7 @@
    * @memberOf R
    * @since v0.8.0
    * @category Object
-   * @typedefn Idx = String | Int
+   * @typedefn Idx = String | Int | Symbol
    * @sig [Idx] -> a -> {a} -> {a}
    * @param {Array} path the path to set
    * @param {*} val The new value
@@ -1109,13 +1038,35 @@
       val = assocPath(Array.prototype.slice.call(path, 1), val, nextObj);
     }
 
-    if (_isInteger(idx) && _isArray(obj)) {
-      var arr = [].concat(obj);
-      arr[idx] = val;
-      return arr;
-    } else {
-      return assoc(idx, val, obj);
-    }
+    return _assoc(idx, val, obj);
+  });
+
+  /**
+   * Makes a shallow clone of an object, setting or overriding the specified
+   * property with the given value. Note that this copies and flattens prototype
+   * properties onto the new object as well. All non-primitive properties are
+   * copied by reference.
+   *
+   * @func
+   * @memberOf R
+   * @since v0.8.0
+   * @category Object
+   * @typedefn Idx = String | Int
+   * @sig Idx -> a -> {k: v} -> {k: v}
+   * @param {String|Number} prop The property name to set
+   * @param {*} val The new value
+   * @param {Object} obj The object to clone
+   * @return {Object} A new object equivalent to the original except for the changed property.
+   * @see R.dissoc, R.pick
+   * @example
+   *
+   *      R.assoc('c', 3, {a: 1, b: 2}); //=> {a: 1, b: 2, c: 3}
+   */
+
+  var assoc =
+  /*#__PURE__*/
+  _curry3(function assoc(prop, val, obj) {
+    return assocPath([prop], val, obj);
   });
 
   /**
@@ -1245,7 +1196,7 @@
    * implementation.
    *
    * @private
-   * @param {Function} fn ramda implemtation
+   * @param {Function} fn ramda implementation
    * @param {String} methodname property to check for a custom implementation
    * @return {Object} Whatever the return value of the method is.
    */
@@ -1354,6 +1305,7 @@
    *
    *      f(3, 4); // -(3^4) + 1
    * @symb R.pipe(f, g, h)(a, b) = h(g(f(a, b)))
+   * @symb R.pipe(f, g, h)(a)(b) = h(g(f(a)))(b)
    */
 
   function pipe() {
@@ -1418,6 +1370,7 @@
    *      R.compose(Math.abs, R.add(1), R.multiply(2))(-4) //=> 7
    *
    * @symb R.compose(f, g, h)(a, b) = f(g(h(a, b)))
+   * @symb R.compose(f, g, h)(a)(b) = f(g(h(a)))(b)
    */
 
   function compose() {
@@ -1427,35 +1380,6 @@
 
     return pipe.apply(this, reverse$1(arguments));
   }
-
-  /**
-   * Returns a new copy of the array with the element at the provided index
-   * replaced with the given value.
-   *
-   * @func
-   * @memberOf R
-   * @since v0.14.0
-   * @category List
-   * @sig Number -> a -> [a] -> [a]
-   * @param {Number} idx The index to update.
-   * @param {*} x The value to exist at the given index of the returned array.
-   * @param {Array|Arguments} list The source array-like object to be updated.
-   * @return {Array} A copy of `list` with the value at index `idx` replaced with `x`.
-   * @see R.adjust
-   * @example
-   *
-   *      R.update(1, '_', ['a', 'b', 'c']);      //=> ['a', '_', 'c']
-   *      R.update(-1, '_', ['a', 'b', 'c']);     //=> ['a', 'b', '_']
-   * @symb R.update(-1, a, [b, c]) = [b, a]
-   * @symb R.update(0, a, [b, c]) = [a, c]
-   * @symb R.update(1, a, [b, c]) = [b, a]
-   */
-
-  var update =
-  /*#__PURE__*/
-  _curry3(function update(idx, x, list) {
-    return adjust(idx, always(x), list);
-  });
 
   /**
    * Returns a lens for the given getter and setter functions. The getter "gets"
@@ -1494,6 +1418,35 @@
   });
 
   /**
+   * Returns a new copy of the array with the element at the provided index
+   * replaced with the given value.
+   *
+   * @func
+   * @memberOf R
+   * @since v0.14.0
+   * @category List
+   * @sig Number -> a -> [a] -> [a]
+   * @param {Number} idx The index to update.
+   * @param {*} x The value to exist at the given index of the returned array.
+   * @param {Array|Arguments} list The source array-like object to be updated.
+   * @return {Array} A copy of `list` with the value at index `idx` replaced with `x`.
+   * @see R.adjust
+   * @example
+   *
+   *      R.update(1, '_', ['a', 'b', 'c']);      //=> ['a', '_', 'c']
+   *      R.update(-1, '_', ['a', 'b', 'c']);     //=> ['a', 'b', '_']
+   * @symb R.update(-1, a, [b, c]) = [b, a]
+   * @symb R.update(0, a, [b, c]) = [a, c]
+   * @symb R.update(1, a, [b, c]) = [b, a]
+   */
+
+  var update =
+  /*#__PURE__*/
+  _curry3(function update(idx, x, list) {
+    return adjust(idx, always(x), list);
+  });
+
+  /**
    * Returns a lens whose focus is the specified index.
    *
    * @func
@@ -1521,13 +1474,81 @@
   });
 
   /**
+   * Retrieves the values at given paths of an object.
+   *
+   * @func
+   * @memberOf R
+   * @since v0.27.1
+   * @category Object
+   * @typedefn Idx = [String | Int | Symbol]
+   * @sig [Idx] -> {a} -> [a | Undefined]
+   * @param {Array} pathsArray The array of paths to be fetched.
+   * @param {Object} obj The object to retrieve the nested properties from.
+   * @return {Array} A list consisting of values at paths specified by "pathsArray".
+   * @see R.path
+   * @example
+   *
+   *      R.paths([['a', 'b'], ['p', 0, 'q']], {a: {b: 2}, p: [{q: 3}]}); //=> [2, 3]
+   *      R.paths([['a', 'b'], ['p', 'r']], {a: {b: 2}, p: [{q: 3}]}); //=> [2, undefined]
+   */
+
+  var paths =
+  /*#__PURE__*/
+  _curry2(function paths(pathsArray, obj) {
+    return pathsArray.map(function (paths) {
+      var val = obj;
+      var idx = 0;
+      var p;
+
+      while (idx < paths.length) {
+        if (val == null) {
+          return;
+        }
+
+        p = paths[idx];
+        val = _isInteger(p) ? nth(p, val) : val[p];
+        idx += 1;
+      }
+
+      return val;
+    });
+  });
+
+  /**
+   * Retrieve the value at a given path.
+   *
+   * @func
+   * @memberOf R
+   * @since v0.2.0
+   * @category Object
+   * @typedefn Idx = String | Int | Symbol
+   * @sig [Idx] -> {a} -> a | Undefined
+   * @param {Array} path The path to use.
+   * @param {Object} obj The object to retrieve the nested property from.
+   * @return {*} The data at `path`.
+   * @see R.prop, R.nth
+   * @example
+   *
+   *      R.path(['a', 'b'], {a: {b: 2}}); //=> 2
+   *      R.path(['a', 'b'], {c: {b: 2}}); //=> undefined
+   *      R.path(['a', 'b', 0], {a: {b: [1, 2, 3]}}); //=> 1
+   *      R.path(['a', 'b', -2], {a: {b: [1, 2, 3]}}); //=> 2
+   */
+
+  var path =
+  /*#__PURE__*/
+  _curry2(function path(pathAr, obj) {
+    return paths([pathAr], obj)[0];
+  });
+
+  /**
    * Returns a lens whose focus is the specified path.
    *
    * @func
    * @memberOf R
    * @since v0.19.0
    * @category Object
-   * @typedefn Idx = String | Int
+   * @typedefn Idx = String | Int | Symbol
    * @typedefn Lens s a = Functor f => (a -> f a) -> s -> f s
    * @sig [Idx] -> Lens s a
    * @param {Array} path The path to use.
@@ -1603,7 +1624,7 @@
    * @param {*} v
    * @param {*} x
    * @return {*}
-   * @see R.prop, R.lensIndex, R.lensProp
+   * @see R.view, R.set, R.lens, R.lensIndex, R.lensProp, R.lensPath
    * @example
    *
    *      const headLens = R.lensIndex(0);
@@ -1637,7 +1658,7 @@
    * @param {*} v
    * @param {*} x
    * @return {*}
-   * @see R.prop, R.lensIndex, R.lensProp
+   * @see R.view, R.over, R.lens, R.lensIndex, R.lensProp, R.lensPath
    * @example
    *
    *      const xLens = R.lensProp('x');
@@ -1662,7 +1683,7 @@
    * @memberOf R
    * @since v0.18.0
    * @category Logic
-   * @sig (a -> Boolean) -> (a -> a) -> a -> a
+   * @sig (a -> Boolean) -> (a -> b) -> a -> a | b
    * @param {Function} pred        A predicate function
    * @param {Function} whenFalseFn A function to invoke when the `pred` evaluates
    *                               to a falsy value.
@@ -1704,7 +1725,7 @@
    * @param {Lens} lens
    * @param {*} x
    * @return {*}
-   * @see R.prop, R.lensIndex, R.lensProp
+   * @see R.set, R.over, R.lens, R.lensIndex, R.lensProp, R.lensPath
    * @example
    *
    *      const xLens = R.lensProp('x');
@@ -1722,10 +1743,11 @@
     return lens(Const)(x).value;
   });
 
-  function createCommonjsModule(fn) {
-    var module = { exports: {} };
-  	return fn(module, module.exports), module.exports;
-  }
+  var sanctuaryTypeIdentifiersExports = {};
+  var sanctuaryTypeIdentifiers = {
+    get exports(){ return sanctuaryTypeIdentifiersExports; },
+    set exports(v){ sanctuaryTypeIdentifiersExports = v; },
+  };
 
   /*
           @@@@@@@            @@@@@@@         @@
@@ -1739,165 +1761,167 @@
           @@@@@@@            @@@@@@@               @@@@@    @@
                                                             */
 
-  var sanctuaryTypeIdentifiers = createCommonjsModule(function (module) {
-  //. # sanctuary-type-identifiers
-  //.
-  //. A type is a set of values. Boolean, for example, is the type comprising
-  //. `true` and `false`. A value may be a member of multiple types (`42` is a
-  //. member of Number, PositiveNumber, Integer, and many other types).
-  //.
-  //. In certain situations it is useful to divide JavaScript values into
-  //. non-overlapping types. The language provides two constructs for this
-  //. purpose: the [`typeof`][1] operator and [`Object.prototype.toString`][2].
-  //. Each has pros and cons, but neither supports user-defined types.
-  //.
-  //. sanctuary-type-identifiers comprises:
-  //.
-  //.   - an npm and browser -compatible package for deriving the
-  //.     _type identifier_ of a JavaScript value; and
-  //.   - a specification which authors may follow to specify type
-  //.     identifiers for their types.
-  //.
-  //. ### Specification
-  //.
-  //. For a type to be compatible with the algorithm:
-  //.
-  //.   - every member of the type MUST have a `@@type` property
-  //.     (the _type identifier_); and
-  //.
-  //.   - the type identifier MUST be a string primitive and SHOULD have
-  //.     format `'<namespace>/<name>[@<version>]'`, where:
-  //.
-  //.       - `<namespace>` MUST consist of one or more characters, and
-  //.         SHOULD equal the name of the npm package which defines the
-  //.         type (including [scope][3] where appropriate);
-  //.
-  //.       - `<name>` MUST consist of one or more characters, and SHOULD
-  //.         be the unique name of the type; and
-  //.
-  //.       - `<version>` MUST consist of one or more digits, and SHOULD
-  //.         represent the version of the type.
-  //.
-  //. If the type identifier does not conform to the format specified above,
-  //. it is assumed that the entire string represents the _name_ of the type;
-  //. _namespace_ will be `null` and _version_ will be `0`.
-  //.
-  //. If the _version_ is not given, it is assumed to be `0`.
+  (function (module) {
+  	//. # sanctuary-type-identifiers
+  	//.
+  	//. A type is a set of values. Boolean, for example, is the type comprising
+  	//. `true` and `false`. A value may be a member of multiple types (`42` is a
+  	//. member of Number, PositiveNumber, Integer, and many other types).
+  	//.
+  	//. In certain situations it is useful to divide JavaScript values into
+  	//. non-overlapping types. The language provides two constructs for this
+  	//. purpose: the [`typeof`][1] operator and [`Object.prototype.toString`][2].
+  	//. Each has pros and cons, but neither supports user-defined types.
+  	//.
+  	//. sanctuary-type-identifiers comprises:
+  	//.
+  	//.   - an npm and browser -compatible package for deriving the
+  	//.     _type identifier_ of a JavaScript value; and
+  	//.   - a specification which authors may follow to specify type
+  	//.     identifiers for their types.
+  	//.
+  	//. ### Specification
+  	//.
+  	//. For a type to be compatible with the algorithm:
+  	//.
+  	//.   - every member of the type MUST have a `@@type` property
+  	//.     (the _type identifier_); and
+  	//.
+  	//.   - the type identifier MUST be a string primitive and SHOULD have
+  	//.     format `'<namespace>/<name>[@<version>]'`, where:
+  	//.
+  	//.       - `<namespace>` MUST consist of one or more characters, and
+  	//.         SHOULD equal the name of the npm package which defines the
+  	//.         type (including [scope][3] where appropriate);
+  	//.
+  	//.       - `<name>` MUST consist of one or more characters, and SHOULD
+  	//.         be the unique name of the type; and
+  	//.
+  	//.       - `<version>` MUST consist of one or more digits, and SHOULD
+  	//.         represent the version of the type.
+  	//.
+  	//. If the type identifier does not conform to the format specified above,
+  	//. it is assumed that the entire string represents the _name_ of the type;
+  	//. _namespace_ will be `null` and _version_ will be `0`.
+  	//.
+  	//. If the _version_ is not given, it is assumed to be `0`.
 
-  (function(f) {
+  	(function(f) {
 
-    /* istanbul ignore else */
-    {
-      module.exports = f ();
-    }
+  	  /* istanbul ignore else */
+  	  {
+  	    module.exports = f ();
+  	  }
 
-  } (function() {
+  	} (function() {
 
-    //  $$type :: String
-    var $$type = '@@type';
+  	  //  $$type :: String
+  	  var $$type = '@@type';
 
-    //  pattern :: RegExp
-    var pattern = new RegExp (
-      '^'
-    + '([\\s\\S]+)'   //  <namespace>
-    + '/'             //  SOLIDUS (U+002F)
-    + '([\\s\\S]+?)'  //  <name>
-    + '(?:'           //  optional non-capturing group {
-    +   '@'           //    COMMERCIAL AT (U+0040)
-    +   '([0-9]+)'    //    <version>
-    + ')?'            //  }
-    + '$'
-    );
+  	  //  pattern :: RegExp
+  	  var pattern = new RegExp (
+  	    '^'
+  	  + '([\\s\\S]+)'   //  <namespace>
+  	  + '/'             //  SOLIDUS (U+002F)
+  	  + '([\\s\\S]+?)'  //  <name>
+  	  + '(?:'           //  optional non-capturing group {
+  	  +   '@'           //    COMMERCIAL AT (U+0040)
+  	  +   '([0-9]+)'    //    <version>
+  	  + ')?'            //  }
+  	  + '$'
+  	  );
 
-    //. ### Usage
-    //.
-    //. ```javascript
-    //. const type = require ('sanctuary-type-identifiers');
-    //. ```
-    //.
-    //. ```javascript
-    //. > const Identity$prototype = {
-    //. .   '@@type': 'my-package/Identity@1',
-    //. .   '@@show': function() {
-    //. .     return 'Identity (' + show (this.value) + ')';
-    //. .   }
-    //. . }
-    //.
-    //. > const Identity = value =>
-    //. .   Object.assign (Object.create (Identity$prototype), {value})
-    //.
-    //. > type (Identity (0))
-    //. 'my-package/Identity@1'
-    //.
-    //. > type.parse (type (Identity (0)))
-    //. {namespace: 'my-package', name: 'Identity', version: 1}
-    //. ```
-    //.
-    //. ### API
-    //.
-    //# type :: Any -> String
-    //.
-    //. Takes any value and returns a string which identifies its type. If the
-    //. value conforms to the [specification][4], the custom type identifier is
-    //. returned.
-    //.
-    //. ```javascript
-    //. > type (null)
-    //. 'Null'
-    //.
-    //. > type (true)
-    //. 'Boolean'
-    //.
-    //. > type (Identity (0))
-    //. 'my-package/Identity@1'
-    //. ```
-    function type(x) {
-      return x != null &&
-             x.constructor != null &&
-             x.constructor.prototype !== x &&
-             typeof x[$$type] === 'string' ?
-        x[$$type] :
-        (Object.prototype.toString.call (x)).slice ('[object '.length,
-                                                    -']'.length);
-    }
+  	  //. ### Usage
+  	  //.
+  	  //. ```javascript
+  	  //. const type = require ('sanctuary-type-identifiers');
+  	  //. ```
+  	  //.
+  	  //. ```javascript
+  	  //. > const Identity$prototype = {
+  	  //. .   '@@type': 'my-package/Identity@1',
+  	  //. .   '@@show': function() {
+  	  //. .     return 'Identity (' + show (this.value) + ')';
+  	  //. .   }
+  	  //. . }
+  	  //.
+  	  //. > const Identity = value =>
+  	  //. .   Object.assign (Object.create (Identity$prototype), {value})
+  	  //.
+  	  //. > type (Identity (0))
+  	  //. 'my-package/Identity@1'
+  	  //.
+  	  //. > type.parse (type (Identity (0)))
+  	  //. {namespace: 'my-package', name: 'Identity', version: 1}
+  	  //. ```
+  	  //.
+  	  //. ### API
+  	  //.
+  	  //# type :: Any -> String
+  	  //.
+  	  //. Takes any value and returns a string which identifies its type. If the
+  	  //. value conforms to the [specification][4], the custom type identifier is
+  	  //. returned.
+  	  //.
+  	  //. ```javascript
+  	  //. > type (null)
+  	  //. 'Null'
+  	  //.
+  	  //. > type (true)
+  	  //. 'Boolean'
+  	  //.
+  	  //. > type (Identity (0))
+  	  //. 'my-package/Identity@1'
+  	  //. ```
+  	  function type(x) {
+  	    return x != null &&
+  	           x.constructor != null &&
+  	           x.constructor.prototype !== x &&
+  	           typeof x[$$type] === 'string' ?
+  	      x[$$type] :
+  	      (Object.prototype.toString.call (x)).slice ('[object '.length,
+  	                                                  -']'.length);
+  	  }
 
-    //# type.parse :: String -> { namespace :: Nullable String, name :: String, version :: Number }
-    //.
-    //. Takes any string and parses it according to the [specification][4],
-    //. returning an object with `namespace`, `name`, and `version` fields.
-    //.
-    //. ```javascript
-    //. > type.parse ('my-package/List@2')
-    //. {namespace: 'my-package', name: 'List', version: 2}
-    //.
-    //. > type.parse ('nonsense!')
-    //. {namespace: null, name: 'nonsense!', version: 0}
-    //.
-    //. > type.parse (type (Identity (0)))
-    //. {namespace: 'my-package', name: 'Identity', version: 1}
-    //. ```
-    type.parse = function parse(s) {
-      var namespace = null;
-      var name = s;
-      var version = 0;
-      var groups = pattern.exec (s);
-      if (groups != null) {
-        namespace = groups[1];
-        name = groups[2];
-        if (groups[3] != null) version = Number (groups[3]);
-      }
-      return {namespace: namespace, name: name, version: version};
-    };
+  	  //# type.parse :: String -> { namespace :: Nullable String, name :: String, version :: Number }
+  	  //.
+  	  //. Takes any string and parses it according to the [specification][4],
+  	  //. returning an object with `namespace`, `name`, and `version` fields.
+  	  //.
+  	  //. ```javascript
+  	  //. > type.parse ('my-package/List@2')
+  	  //. {namespace: 'my-package', name: 'List', version: 2}
+  	  //.
+  	  //. > type.parse ('nonsense!')
+  	  //. {namespace: null, name: 'nonsense!', version: 0}
+  	  //.
+  	  //. > type.parse (type (Identity (0)))
+  	  //. {namespace: 'my-package', name: 'Identity', version: 1}
+  	  //. ```
+  	  type.parse = function parse(s) {
+  	    var namespace = null;
+  	    var name = s;
+  	    var version = 0;
+  	    var groups = pattern.exec (s);
+  	    if (groups != null) {
+  	      namespace = groups[1];
+  	      name = groups[2];
+  	      if (groups[3] != null) version = Number (groups[3]);
+  	    }
+  	    return {namespace: namespace, name: name, version: version};
+  	  };
 
-    return type;
+  	  return type;
 
-  }));
+  	}));
 
-  //. [1]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/typeof
-  //. [2]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/toString
-  //. [3]: https://docs.npmjs.com/misc/scope
-  //. [4]: #specification
-  });
+  	//. [1]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/typeof
+  	//. [2]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/toString
+  	//. [3]: https://docs.npmjs.com/misc/scope
+  	//. [4]: #specification
+  } (sanctuaryTypeIdentifiers));
+
+  var type = sanctuaryTypeIdentifiersExports;
 
   var FL = {
     alt: 'fantasy-land/alt',
@@ -2003,195 +2027,203 @@
     }
   }
 
-  var sanctuaryShow = createCommonjsModule(function (module) {
-  //. # sanctuary-show
-  //.
-  //. Haskell has a `show` function which can be applied to a compatible value to
-  //. produce a descriptive string representation of that value. The idea is that
-  //. the string representation should, if possible, be an expression which would
-  //. produce the original value if evaluated.
-  //.
-  //. This library provides a similar [`show`](#show) function.
-  //.
-  //. In general, this property should hold: `eval (show (x)) = x`. In some cases
-  //. parens are necessary to ensure correct interpretation (`{}`, for example,
-  //. is an empty block rather than an empty object in some contexts). Thus the
-  //. property is more accurately stated `eval ('(' + show (x) + ')') = x`.
-  //.
-  //. One can make values of a custom type compatible with [`show`](#show) by
-  //. defining a `@@show` method. For example:
-  //.
-  //. ```javascript
-  //. //# Maybe#@@show :: Maybe a ~> () -> String
-  //. //.
-  //. //. ```javascript
-  //. //. > show (Nothing)
-  //. //. 'Nothing'
-  //. //.
-  //. //. > show (Just (['foo', 'bar', 'baz']))
-  //. //. 'Just (["foo", "bar", "baz"])'
-  //. //. ```
-  //. Maybe.prototype['@@show'] = function() {
-  //.   return this.isNothing ? 'Nothing' : 'Just (' + show (this.value) + ')';
-  //. };
-  //. ```
+  var sanctuaryShowExports = {};
+  var sanctuaryShow = {
+    get exports(){ return sanctuaryShowExports; },
+    set exports(v){ sanctuaryShowExports = v; },
+  };
 
-  (function(f) {
+  (function (module) {
+  	//. # sanctuary-show
+  	//.
+  	//. Haskell has a `show` function which can be applied to a compatible value to
+  	//. produce a descriptive string representation of that value. The idea is that
+  	//. the string representation should, if possible, be an expression which would
+  	//. produce the original value if evaluated.
+  	//.
+  	//. This library provides a similar [`show`](#show) function.
+  	//.
+  	//. In general, this property should hold: `eval (show (x)) = x`. In some cases
+  	//. parens are necessary to ensure correct interpretation (`{}`, for example,
+  	//. is an empty block rather than an empty object in some contexts). Thus the
+  	//. property is more accurately stated `eval ('(' + show (x) + ')') = x`.
+  	//.
+  	//. One can make values of a custom type compatible with [`show`](#show) by
+  	//. defining a `@@show` method. For example:
+  	//.
+  	//. ```javascript
+  	//. //# Maybe#@@show :: Maybe a ~> () -> String
+  	//. //.
+  	//. //. ```javascript
+  	//. //. > show (Nothing)
+  	//. //. 'Nothing'
+  	//. //.
+  	//. //. > show (Just (['foo', 'bar', 'baz']))
+  	//. //. 'Just (["foo", "bar", "baz"])'
+  	//. //. ```
+  	//. Maybe.prototype['@@show'] = function() {
+  	//.   return this.isNothing ? 'Nothing' : 'Just (' + show (this.value) + ')';
+  	//. };
+  	//. ```
 
-    /* istanbul ignore else */
-    {
-      module.exports = f ();
-    }
+  	(function(f) {
 
-  } (function() {
+  	  /* istanbul ignore else */
+  	  {
+  	    module.exports = f ();
+  	  }
 
-    //  $$show :: String
-    var $$show = '@@show';
+  	} (function() {
 
-    //  seen :: Array Any
-    var seen = [];
+  	  //  $$show :: String
+  	  var $$show = '@@show';
 
-    //  entry :: Object -> String -> String
-    function entry(o) {
-      return function(k) {
-        return show (k) + ': ' + show (o[k]);
-      };
-    }
+  	  //  seen :: Array Any
+  	  var seen = [];
 
-    //  sortedKeys :: Object -> Array String
-    function sortedKeys(o) {
-      return (Object.keys (o)).sort ();
-    }
+  	  //  entry :: Object -> String -> String
+  	  function entry(o) {
+  	    return function(k) {
+  	      return show (k) + ': ' + show (o[k]);
+  	    };
+  	  }
 
-    //# show :: Showable a => a -> String
-    //.
-    //. Returns a useful string representation of the given value.
-    //.
-    //. Dispatches to the value's `@@show` method if present.
-    //.
-    //. Where practical, `show (eval ('(' + show (x) + ')')) = show (x)`.
-    //.
-    //. ```javascript
-    //. > show (null)
-    //. 'null'
-    //.
-    //. > show (undefined)
-    //. 'undefined'
-    //.
-    //. > show (true)
-    //. 'true'
-    //.
-    //. > show (new Boolean (false))
-    //. 'new Boolean (false)'
-    //.
-    //. > show (-0)
-    //. '-0'
-    //.
-    //. > show (NaN)
-    //. 'NaN'
-    //.
-    //. > show (new Number (Infinity))
-    //. 'new Number (Infinity)'
-    //.
-    //. > show ('foo\n"bar"\nbaz\n')
-    //. '"foo\\n\\"bar\\"\\nbaz\\n"'
-    //.
-    //. > show (new String (''))
-    //. 'new String ("")'
-    //.
-    //. > show (['foo', 'bar', 'baz'])
-    //. '["foo", "bar", "baz"]'
-    //.
-    //. > show ([[[[[0]]]]])
-    //. '[[[[[0]]]]]'
-    //.
-    //. > show ({x: [1, 2], y: [3, 4], z: [5, 6]})
-    //. '{"x": [1, 2], "y": [3, 4], "z": [5, 6]}'
-    //. ```
-    function show(x) {
-      if (seen.indexOf (x) >= 0) return '<Circular>';
+  	  //  sortedKeys :: Object -> Array String
+  	  function sortedKeys(o) {
+  	    return (Object.keys (o)).sort ();
+  	  }
 
-      switch (Object.prototype.toString.call (x)) {
+  	  //# show :: Showable a => a -> String
+  	  //.
+  	  //. Returns a useful string representation of the given value.
+  	  //.
+  	  //. Dispatches to the value's `@@show` method if present.
+  	  //.
+  	  //. Where practical, `show (eval ('(' + show (x) + ')')) = show (x)`.
+  	  //.
+  	  //. ```javascript
+  	  //. > show (null)
+  	  //. 'null'
+  	  //.
+  	  //. > show (undefined)
+  	  //. 'undefined'
+  	  //.
+  	  //. > show (true)
+  	  //. 'true'
+  	  //.
+  	  //. > show (new Boolean (false))
+  	  //. 'new Boolean (false)'
+  	  //.
+  	  //. > show (-0)
+  	  //. '-0'
+  	  //.
+  	  //. > show (NaN)
+  	  //. 'NaN'
+  	  //.
+  	  //. > show (new Number (Infinity))
+  	  //. 'new Number (Infinity)'
+  	  //.
+  	  //. > show ('foo\n"bar"\nbaz\n')
+  	  //. '"foo\\n\\"bar\\"\\nbaz\\n"'
+  	  //.
+  	  //. > show (new String (''))
+  	  //. 'new String ("")'
+  	  //.
+  	  //. > show (['foo', 'bar', 'baz'])
+  	  //. '["foo", "bar", "baz"]'
+  	  //.
+  	  //. > show ([[[[[0]]]]])
+  	  //. '[[[[[0]]]]]'
+  	  //.
+  	  //. > show ({x: [1, 2], y: [3, 4], z: [5, 6]})
+  	  //. '{"x": [1, 2], "y": [3, 4], "z": [5, 6]}'
+  	  //. ```
+  	  function show(x) {
+  	    if (seen.indexOf (x) >= 0) return '<Circular>';
 
-        case '[object Boolean]':
-          return typeof x === 'object' ?
-            'new Boolean (' + show (x.valueOf ()) + ')' :
-            x.toString ();
+  	    switch (Object.prototype.toString.call (x)) {
 
-        case '[object Number]':
-          return typeof x === 'object' ?
-            'new Number (' + show (x.valueOf ()) + ')' :
-            1 / x === -Infinity ? '-0' : x.toString (10);
+  	      case '[object Boolean]':
+  	        return typeof x === 'object' ?
+  	          'new Boolean (' + show (x.valueOf ()) + ')' :
+  	          x.toString ();
 
-        case '[object String]':
-          return typeof x === 'object' ?
-            'new String (' + show (x.valueOf ()) + ')' :
-            JSON.stringify (x);
+  	      case '[object Number]':
+  	        return typeof x === 'object' ?
+  	          'new Number (' + show (x.valueOf ()) + ')' :
+  	          1 / x === -Infinity ? '-0' : x.toString (10);
 
-        case '[object Date]':
-          return 'new Date (' +
-                 show (isNaN (x.valueOf ()) ? NaN : x.toISOString ()) +
-                 ')';
+  	      case '[object String]':
+  	        return typeof x === 'object' ?
+  	          'new String (' + show (x.valueOf ()) + ')' :
+  	          JSON.stringify (x);
 
-        case '[object Error]':
-          return 'new ' + x.name + ' (' + show (x.message) + ')';
+  	      case '[object Date]':
+  	        return 'new Date (' +
+  	               show (isNaN (x.valueOf ()) ? NaN : x.toISOString ()) +
+  	               ')';
 
-        case '[object Arguments]':
-          return 'function () { return arguments; } (' +
-                 (Array.prototype.map.call (x, show)).join (', ') +
-                 ')';
+  	      case '[object Error]':
+  	        return 'new ' + x.name + ' (' + show (x.message) + ')';
 
-        case '[object Array]':
-          seen.push (x);
-          try {
-            return '[' + ((x.map (show)).concat (
-              sortedKeys (x)
-              .filter (function(k) { return !(/^\d+$/.test (k)); })
-              .map (entry (x))
-            )).join (', ') + ']';
-          } finally {
-            seen.pop ();
-          }
+  	      case '[object Arguments]':
+  	        return 'function () { return arguments; } (' +
+  	               (Array.prototype.map.call (x, show)).join (', ') +
+  	               ')';
 
-        case '[object Object]':
-          seen.push (x);
-          try {
-            return (
-              $$show in x &&
-              (x.constructor == null || x.constructor.prototype !== x) ?
-                x[$$show] () :
-                '{' + ((sortedKeys (x)).map (entry (x))).join (', ') + '}'
-            );
-          } finally {
-            seen.pop ();
-          }
+  	      case '[object Array]':
+  	        seen.push (x);
+  	        try {
+  	          return '[' + ((x.map (show)).concat (
+  	            sortedKeys (x)
+  	            .filter (function(k) { return !(/^\d+$/.test (k)); })
+  	            .map (entry (x))
+  	          )).join (', ') + ']';
+  	        } finally {
+  	          seen.pop ();
+  	        }
 
-        case '[object Set]':
-          seen.push (x);
-          try {
-            return 'new Set (' + show (Array.from (x.values ())) + ')';
-          } finally {
-            seen.pop ();
-          }
+  	      case '[object Object]':
+  	        seen.push (x);
+  	        try {
+  	          return (
+  	            $$show in x &&
+  	            (x.constructor == null || x.constructor.prototype !== x) ?
+  	              x[$$show] () :
+  	              '{' + ((sortedKeys (x)).map (entry (x))).join (', ') + '}'
+  	          );
+  	        } finally {
+  	          seen.pop ();
+  	        }
 
-        case '[object Map]':
-          seen.push (x);
-          try {
-            return 'new Map (' + show (Array.from (x.entries ())) + ')';
-          } finally {
-            seen.pop ();
-          }
+  	      case '[object Set]':
+  	        seen.push (x);
+  	        try {
+  	          return 'new Set (' + show (Array.from (x.values ())) + ')';
+  	        } finally {
+  	          seen.pop ();
+  	        }
 
-        default:
-          return String (x);
+  	      case '[object Map]':
+  	        seen.push (x);
+  	        try {
+  	          return 'new Map (' + show (Array.from (x.entries ())) + ')';
+  	        } finally {
+  	          seen.pop ();
+  	        }
 
-      }
-    }
+  	      default:
+  	        return String (x);
 
-    return show;
+  	    }
+  	  }
 
-  }));
-  });
+  	  return show;
+
+  	}));
+  } (sanctuaryShow));
+
+  var show = sanctuaryShowExports;
 
   /* c8 ignore next */
   var setImmediate = typeof setImmediate === 'undefined' ? setImmediateFallback : setImmediate;
@@ -2211,7 +2243,7 @@
   }
 
   function showArg$1(x){
-    return sanctuaryShow(x) + ' :: ' + sanctuaryTypeIdentifiers.parse(sanctuaryTypeIdentifiers(x)).name;
+    return show(x) + ' :: ' + type.parse(type(x)).name;
   }
 
   function error(message){
@@ -2269,14 +2301,14 @@
   }
 
   function invalidFuture(desc, m, s){
-    var id = sanctuaryTypeIdentifiers.parse(sanctuaryTypeIdentifiers(m));
+    var id = type.parse(type(m));
     var info = id.name === name ? '\n' + (
       id.namespace !== namespace ? invalidNamespace(m, id.namespace)
     : id.version !== version ? invalidVersion(m, id.version)
     : 'Nothing seems wrong. Contact the Fluture maintainers.') : '';
     return typeError(
       desc + ' to be a valid Future.' + info + '\n' +
-      '  Actual: ' + sanctuaryShow(m) + ' :: ' + id.name + (s || '')
+      '  Actual: ' + show(m) + ' :: ' + id.name + (s || '')
     );
   }
 
@@ -2288,7 +2320,7 @@
     var message;
     try{
       if(value instanceof Error) return value;
-      message = 'A Non-Error was thrown from a Future: ' + sanctuaryShow(value);
+      message = 'A Non-Error was thrown from a Future: ' + show(value);
     }catch (_){
       message = 'Something was thrown from a Future, but it could not be converted to String';
     }
@@ -2373,7 +2405,7 @@
   }
 
   function showArg(arg){
-    return ' (' + sanctuaryShow(arg) + ')';
+    return ' (' + show(arg) + ')';
   }
 
   var any = {pred: alwaysTrue, error: invalidArgumentOf('be anything')};
@@ -2397,7 +2429,7 @@
   }
 
   function isFuture(x){
-    return x instanceof Future || sanctuaryTypeIdentifiers(x) === $$type$1;
+    return x instanceof Future || type(x) === $$type$1;
   }
 
   // Compliance with sanctuary-type-identifiers versions 1 and 2.
@@ -2515,7 +2547,7 @@
     if(!(isFunction(cancel) && cancel.length === 0)){
       rec(wrapException(typeError(
         'The computation was expected to return a nullary cancellation function\n' +
-        '  Actual: ' + sanctuaryShow(cancel)
+        '  Actual: ' + show(cancel)
       ), this));
       return noop;
     }
@@ -2770,7 +2802,7 @@
       }
       return new Crash(this.context, invalidFuture(
         this.name + ' expects the return value from the function it\'s given', m,
-        '\n  When called with: ' + sanctuaryShow(x)
+        '\n  When called with: ' + show(x)
       ));
     };
   }
@@ -2806,7 +2838,7 @@
       if(isFunction(f)) return this.$1._transform(new MapTransformation(this.context, f));
       throw typeError(
         'ap expects the second Future to resolve to a Function\n' +
-        '  Actual: ' + sanctuaryShow(f)
+        '  Actual: ' + show(f)
       );
     }
   });
@@ -2850,8 +2882,8 @@
   function invalidPromise(p, f, a){
     return typeError(
       'encaseP() expects the function it\'s given to return a Promise/Thenable'
-      + '\n  Actual: ' + sanctuaryShow(p) + '\n  From calling: ' + sanctuaryShow(f)
-      + '\n  With: ' + sanctuaryShow(a)
+      + '\n  Actual: ' + show(p) + '\n  From calling: ' + show(f)
+      + '\n  With: ' + show(a)
     );
   }
 
@@ -3123,7 +3155,7 @@
   function invalidIteration(o){
     return typeError(
       'The iterator did not return a valid iteration from iterator.next()\n' +
-      '  Actual: ' + sanctuaryShow(o)
+      '  Actual: ' + show(o)
     );
   }
 
@@ -3189,14 +3221,14 @@
   function invalidDisposal(m, f, x){
     return invalidFuture(
       'hook() expects the return value from the first function it\'s given', m,
-      '\n  From calling: ' + sanctuaryShow(f) + '\n  With: ' + sanctuaryShow(x)
+      '\n  From calling: ' + show(f) + '\n  With: ' + show(x)
     );
   }
 
   function invalidConsumption(m, f, x){
     return invalidFuture(
       'hook() expects the return value from the second function it\'s given', m,
-      '\n  From calling: ' + sanctuaryShow(f) + '\n  With: ' + sanctuaryShow(x)
+      '\n  From calling: ' + show(f) + '\n  With: ' + show(x)
     );
   }
 
@@ -3238,7 +3270,7 @@
     }
 
     function Hook$disposalRejected(x){
-      Hook$rec(new Error('The disposal Future rejected with ' + sanctuaryShow(x)));
+      Hook$rec(new Error('The disposal Future rejected with ' + show(x)));
     }
 
     function Hook$consumptionException(x){
@@ -3334,7 +3366,7 @@
       if(isFunction(f)) return this.$1._transform(new MapTransformation(this.context, f));
       throw typeError(
         'pap expects the second Future to resolve to a Function\n' +
-        '  Actual: ' + sanctuaryShow(f)
+        '  Actual: ' + show(f)
       );
     }
   });
@@ -3481,7 +3513,7 @@
   )(data));
 
   const setter = (l) => (value, target) => (compose(
-      map(([v, t]) => set(l, v, t)),
+      chain(([v, t]) => toFuture(set(l, v, t))),
       both(toFuture(value))
   )(toFuture(target)));
 
@@ -3493,9 +3525,9 @@
 
   const flens = compose(wrap, lens);
 
-  const flensProp = (prop)=>wrap(lensProp(prop));
-  const flensPath = (path)=>wrap(lensPath(path));
-  const flensIndex = (index)=>wrap(lensIndex(index));
+  const flensProp = (prop) => wrap(lensProp(prop));
+  const flensPath = (path) => wrap(lensPath(path));
+  const flensIndex = (index) => wrap(lensIndex(index));
 
   exports.flens = flens;
   exports.flensIndex = flensIndex;
@@ -3505,4 +3537,4 @@
 
   Object.defineProperty(exports, '__esModule', { value: true });
 
-})));
+}));

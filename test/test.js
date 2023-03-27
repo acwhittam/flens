@@ -11,7 +11,8 @@ const object = {
 }
 const single = wrap(R.lensProp('prop'));
 const composed = R.compose(wrap(R.lensProp('prop2')), wrap(R.lensProp('prop3')));
-const delayedLens = flens(({prop})=>F.after(1000)(prop), R.assoc('prop'));
+const delayedLens = flens(({ prop }) => F.after(1000)(prop), R.assoc('prop'));
+const delayedSetLens = flens(({ prop }) => F.after(1000)(prop), (value, obj) => F.after(1000)(R.assoc('prop', value, obj)));
 test('R.view', function (t) {
     t.plan(4);
 
@@ -31,11 +32,11 @@ test('R.view', function (t) {
         t.equals('a', x, "delayed lens view")
     })((R.view(delayedLens)(object)));
 
-    
-    
+
+
 });
 test('R.set', function (t) {
-    t.plan(3);
+    t.plan(4);
 
     F.fork(t.fail)((x) => {
         t.deepEqual({ prop: 'z', prop2: { prop3: "b" } }, x, "single lens set")
@@ -49,6 +50,10 @@ test('R.set', function (t) {
         t.deepEqual({ prop: 'a', prop2: { prop3: "c" } }, x, "composed lens set")
     })((R.set(composed, 'c')(object)));
 
+    F.fork(t.fail)((x) => {
+        t.deepEqual({ prop: 'c', prop2: { prop3: "b" } }, x, "single lens set -- delayed setter fn")
+    })((R.set(delayedSetLens, 'c')(object)));
+
 
 });
 
@@ -61,12 +66,12 @@ test('R.over', function (t) {
 
     F.fork(t.fail)((x) => {
         t.deepEqual({ prop: 'A', prop2: { prop3: "b" } }, x, "single lens over - delayed object")
-    })((R.over(single,  R.map(R.toUpper))(F.after(1000)(object))));
+    })((R.over(single, R.map(R.toUpper))(F.after(1000)(object))));
 
     F.fork(t.fail)((x) => {
         t.deepEqual({ prop: 'a', prop2: { prop3: "B" } }, x, "composed lens over")
-    })((R.over(composed,  R.map(R.toUpper))(object)));
+    })((R.over(composed, R.map(R.toUpper))(object)));
     F.fork(t.fail)((x) => {
         t.deepEqual({ prop: 'a', prop2: { prop3: "B" } }, x, "delayed over")
-    })((R.over(composed,  R.chain((v)=>F.after(1000)(R.toUpper(v))))(object)));
+    })((R.over(composed, R.chain((v) => F.after(1000)(R.toUpper(v))))(object)));
 });
