@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "fluture": "^14.0.0",
-    "ramda": "^0.28.0"
+    "ramda": "^0.29.0"
   },
   "author": "andy whittam",
   "keywords": [
