@@ -1,20 +1,24 @@
 {
   "name": "flens",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "Futures + Lens",
   "main": "dist/flens.cjs.js",
   "module": "dist/flens.esm.js",
   "browser": "dist/flens.umd.js",
+  "type": "module",
   "scripts": {
     "prepublish": "npm run build",
-    "build": "rollup -c ",
-    "dev": "rollup -c -w",
-    "test": "tape test/test.js",
-    "pretest": "npm run build"
+    "test": "node -r @swc/register test/test.js",
+    "pretest": "npm run build",
+    "build:cjs": "swc src/index.js -o dist/flens.cjs.js --config-file .swcrc",
+    "build:esm": "swc src/index.js -o dist/flens.esm.js --config-file .swcrc.esm",
+    "build:umd": "swc src/index.js -o dist/flens.umd.js --config-file .swcrc.umd",
+    "build": "npm run build:cjs && npm run build:esm && npm run build:umd"
   },
   "dependencies": {
     "fluture": "^14.0.0",
-    "ramda": "^0.28.0"
+    "ramda": "^0.30.1"
+  
   },
   "author": "andy whittam",
   "keywords": [
@@ -26,12 +30,6 @@
     "fluture"
   ],
   "license": "MIT",
-  "devDependencies": {
-    "@rollup/plugin-commonjs": "^24.0.1",
-    "@rollup/plugin-node-resolve": "^13.1.3",
-    "rollup": "^2.42.0",
-    "tape": "^5.2.2"
-  },
   "repository": {
     "type": "git",
     "url": "https://github.com/acwhittam/flens.git"
@@ -39,5 +37,11 @@
   "files": [
     "dist",
     "README.md"
-  ]
+  ],
+  "devDependencies": {
+    "@swc/cli": "^0.4.0",
+    "@swc/core": "^1.7.10",
+    "@swc/register": "^0.1.10",
+      "riteway": "^7.1.0"
+  }
 }

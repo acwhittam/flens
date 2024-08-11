@@ -1,77 +1,93 @@
-const R = require('ramda');
-const F = require('fluture');
-const { wrap, flens } = require('..');
-const test = require('tape');
+import * as R from 'ramda';
+import * as F from 'fluture';
+import { wrap, flens } from '../src/index.js';
+import { describe } from 'riteway/esm/riteway.js';
 
 const object = {
     prop: 'a',
     prop2: {
         prop3: "b"
     },
-}
+};
 const single = wrap(R.lensProp('prop'));
 const composed = R.compose(wrap(R.lensProp('prop2')), wrap(R.lensProp('prop3')));
 const delayedLens = flens(({ prop }) => F.after(1000)(prop), R.assoc('prop'));
 const delayedSetLens = flens(({ prop }) => F.after(1000)(prop), (value, obj) => F.after(1000)(R.assoc('prop', value, obj)));
-test('R.view', function (t) {
-    t.plan(4);
 
-    F.fork(t.fail)((x) => {
-        t.equals('a', x, "single lens view")
-    })((R.view(single)(object)));
+describe('R.view', async assert => {
+    const runTest = (description, lens, expected) => {
+        return new Promise((resolve) => {
+            F.fork(() => assert({
+                given: description,
+                should: 'fail',
+                actual: 'error',
+                expected: 'success'
+            }))(x => {
+                assert({
+                    given: description,
+                    should: 'return correct value',
+                    actual: x,
+                    expected
+                });
+                resolve();
+            })(R.view(lens)(object));
+        });
+    };
 
-    F.fork(t.fail)((x) => {
-        t.equals('a', x, "single lens view - delayed object")
-    })((R.view(single)(F.after(1000)(object))));
-
-    F.fork(t.fail)((x) => {
-        t.equals('b', x, "composed lens view")
-    })((R.view(composed)(object)));
-
-    F.fork(t.fail)((x) => {
-        t.equals('a', x, "delayed lens view")
-    })((R.view(delayedLens)(object)));
-
-
-
-});
-test('R.set', function (t) {
-    t.plan(4);
-
-    F.fork(t.fail)((x) => {
-        t.deepEqual({ prop: 'z', prop2: { prop3: "b" } }, x, "single lens set")
-    })((R.set(single, 'z')(object)));
-
-    F.fork(t.fail)((x) => {
-        t.deepEqual({ prop: 'z', prop2: { prop3: "b" } }, x, "single lens set - delayed object")
-    })((R.set(single, 'z')(F.after(1000)(object))));
-
-    F.fork(t.fail)((x) => {
-        t.deepEqual({ prop: 'a', prop2: { prop3: "c" } }, x, "composed lens set")
-    })((R.set(composed, 'c')(object)));
-
-    F.fork(t.fail)((x) => {
-        t.deepEqual({ prop: 'c', prop2: { prop3: "b" } }, x, "single lens set -- delayed setter fn")
-    })((R.set(delayedSetLens, 'c')(object)));
-
-
+    await runTest("single lens view", single, 'a');
+    await runTest("single lens view - delayed object", single, 'a');
+    await runTest("composed lens view", composed, 'b');
+    await runTest("delayed lens view", delayedLens, 'a');
 });
 
-test('R.over', function (t) {
-    t.plan(4);
+describe('R.set', async assert => {
+    const runTest = (description, lens, value, expected) => {
+        return new Promise((resolve) => {
+            F.fork(() => assert({
+                given: description,
+                should: 'fail',
+                actual: 'error',
+                expected: 'success'
+            }))(x => {
+                assert({
+                    given: description,
+                    should: 'return correct object',
+                    actual: x,
+                    expected
+                });
+                resolve();
+            })(R.set(lens, value)(object));
+        });
+    };
 
-    F.fork(t.fail)((x) => {
-        t.deepEqual({ prop: 'A', prop2: { prop3: "b" } }, x, "single lens over")
-    })((R.over(single, R.map(R.toUpper))(object)));
+    await runTest("single lens set", single, 'z', { prop: 'z', prop2: { prop3: "b" } });
+    await runTest("single lens set - delayed object", single, 'z', { prop: 'z', prop2: { prop3: "b" } });
+    await runTest("composed lens set", composed, 'c', { prop: 'a', prop2: { prop3: "c" } });
+    await runTest("single lens set -- delayed setter fn", delayedSetLens, 'c', { prop: 'c', prop2: { prop3: "b" } });
+});
 
-    F.fork(t.fail)((x) => {
-        t.deepEqual({ prop: 'A', prop2: { prop3: "b" } }, x, "single lens over - delayed object")
-    })((R.over(single, R.map(R.toUpper))(F.after(1000)(object))));
+describe('R.over', async assert => {
+    const runTest = (description, lens, fn, expected) => {
+        return new Promise((resolve) => {
+            F.fork(() => assert({
+                given: description,
+                should: 'fail',
+                actual: 'error',
+                expected: 'success'
+            }))(x => {
+                assert({
+                    given: description,
+                    should: 'return correct object',
+                    actual: x,
+                    expected
+                });
+                resolve();
+            })(R.over(lens, fn)(object));
+        });
+    };
 
-    F.fork(t.fail)((x) => {
-        t.deepEqual({ prop: 'a', prop2: { prop3: "B" } }, x, "composed lens over")
-    })((R.over(composed, R.map(R.toUpper))(object)));
-    F.fork(t.fail)((x) => {
-        t.deepEqual({ prop: 'a', prop2: { prop3: "B" } }, x, "delayed over")
-    })((R.over(composed, R.chain((v) => F.after(1000)(R.toUpper(v))))(object)));
+    await runTest("single lens over", single, R.map(R.toUpper), { prop: 'A', prop2: { prop3: "b" } });
+    await runTest("single lens over - delayed object", single, R.map(R.toUpper), { prop: 'A', prop2: { prop3: "b" } });
+    await runTest("composed lens over", composed, R.map(R.toUpper), { prop: 'a', prop2: { prop3: "B" } });
+    await runTest("delayed over", composed, R.chain((v) => F.after(1000)(R.toUpper(v))), { prop: 'a', prop2: { prop3: "B" } });
 });

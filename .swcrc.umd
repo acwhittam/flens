@@ -1,0 +1,12 @@
+{
+  "module": {
+    "type": "umd",
+    "globals": {"ramda":"ramda","fluture":"fluture" },
+ 
+    // These are defaults.
+    "strict": false,
+    "strictMode": true,
+    "lazy": false,
+    "noInterop": false
+  }
+}
