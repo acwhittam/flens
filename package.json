@@ -39,7 +39,7 @@
     "README.md"
   ],
   "devDependencies": {
-    "@swc/cli": "^0.4.0",
+    "@swc/cli": "^0.5.0",
     "@swc/core": "^1.7.10",
     "@swc/register": "^0.1.10",
       "riteway": "^7.1.0"
