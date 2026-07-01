@@ -42,6 +42,6 @@
     "@swc/cli": "^0.5.0",
     "@swc/core": "^1.7.10",
     "@swc/register": "^0.1.10",
-      "riteway": "^7.1.0"
+      "riteway": "^9.3.0"
   }
 }
