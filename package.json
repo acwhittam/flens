@@ -5,6 +5,7 @@
   "main": "dist/flens.cjs.js",
   "module": "dist/flens.esm.js",
   "browser": "dist/flens.umd.js",
+  "types": "index.d.ts",
   "type": "module",
   "scripts": {
     "prepublish": "npm run build",
@@ -35,6 +36,7 @@
   },
   "files": [
     "dist",
+    "index.d.ts",
     "README.md"
   ],
   "devDependencies": {
@@ -42,6 +44,7 @@
     "@swc/core": "^1.7.10",
     "@swc/register": "^0.1.10",
     "@types/ramda": "^0.32.0",
-    "riteway": "^7.1.0"
+    "riteway": "^7.1.0",
+    "typescript": "^6.0.3"
   }
 }
